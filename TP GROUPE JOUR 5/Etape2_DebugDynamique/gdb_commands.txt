@@ -1,0 +1,76 @@
+# Commandes GDB — Extraction de la clé de chiffrement
+# TP Jour 5 — Étape 2
+
+# 1. Lancer GDB avec le ransomware compilé
+gdb ./ransomware
+
+# 2. Lister toutes les fonctions du binaire
+(gdb) info functions
+
+# 3. Placer un breakpoint sur main
+(gdb) break main
+
+# 4. Placer un breakpoint sur encrypt_file (appelée pour chaque fichier)
+(gdb) break encrypt_file
+
+# 5. Placer un breakpoint sur encrypt (cœur du chiffrement XOR)
+(gdb) break encrypt
+
+# 6. Vérifier les breakpoints posés
+(gdb) info breakpoints
+
+# 7. Lancer le programme avec un dossier de test
+(gdb) run ./test_files
+
+# --- Arrêt sur main ---
+# 8. Afficher la clé de chiffrement (variable globale)
+(gdb) print encryption_key
+(gdb) print (char*)encryption_key
+
+# 9. Afficher la clé comme string (méthode la plus lisible)
+(gdb) x/s encryption_key
+# Résultat attendu : 0x... <encryption_key>: "Sup3rS3cr3tK3y2024!"
+
+# 10. Afficher les 20 premiers octets en hexadécimal
+(gdb) x/20xb encryption_key
+# Résultat attendu (hex ASCII de "Sup3rS3cr3tK3y2024!") :
+# 53 75 70 33 72 53 33 63 72 33 74 4b 33 79 32 30 32 34 21 00
+
+# 11. Vérifier la longueur de la clé
+(gdb) print KEY_LENGTH
+# Résultat attendu : 19
+
+# 12. Continuer jusqu'à encrypt_file
+(gdb) continue
+# --- Arrêt sur encrypt_file ---
+
+# 13. Afficher les arguments de encrypt_file (quel fichier est chiffré)
+(gdb) info args
+
+# 14. Continuer jusqu'à encrypt (la fonction XOR elle-même)
+(gdb) continue
+# --- Arrêt sur encrypt ---
+
+# 15. Afficher les 4 arguments de encrypt
+(gdb) info args
+# data     : pointeur vers les octets du fichier
+# data_len : taille du fichier
+# key      : pointeur vers encryption_key
+# key_len  : 19
+
+# 16. Examiner les données AVANT chiffrement (contenu lisible du fichier)
+(gdb) x/50c data
+
+# 17. Avancer instruction par instruction
+(gdb) next
+
+# 18. Quitter GDB
+(gdb) quit
+
+# ====================================
+# RÉSULTAT : Clé extraite
+# ====================================
+# Valeur   : Sup3rS3cr3tK3y2024!
+# Longueur : 19 octets
+# Hex      : 53 75 70 33 72 53 33 63 72 33 74 4b 33 79 32 30 32 34 21
+# Variable : encryption_key (globale, visible dans les symboles de debug)

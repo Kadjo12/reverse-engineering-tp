@@ -1,0 +1,64 @@
+# IOCs — Ransomware Pédagogique TP Jour 5
+# Date    : 2026-07-31
+# Équipe  : Djimy
+
+## Hashes (binaire compilé)
+MD5:    851d19efb2eb77f27ae6aa4fee78dc83
+SHA1:   b764e9e0bafeccebb78aa31d91e896822543cd0b
+SHA256: 4ceb8ae18b98e01faa12d42f09fd6cb0f7b9cb0336621253ae4b72bb6aef69aa
+
+## Informations fichier
+Nom     : ransomware
+Type    : ELF 64-bit LSB pie executable, x86-64
+Taille  : ~24 Ko (avec symboles de debug)
+Source  : ransomware.c (code C, compilé avec gcc -g -O0)
+
+## Network Indicators
+C2 Server  : 127.0.0.1 (localhost)
+C2 Port    : 5000
+Protocole  : HTTP (non chiffré)
+Endpoints  :
+  - POST /api/register   (enregistrement victime)
+  - POST /api/key        (exfiltration de la clé)
+
+## Clé de chiffrement
+Valeur     : Sup3rS3cr3tK3y2024!
+Longueur   : 19 octets
+Variable   : encryption_key (globale, ligne ~30 de ransomware.c)
+Visible    : OUI (en clair dans le binaire via strings)
+
+## Algorithme
+Type       : XOR (symétrique — chiffrement = déchiffrement)
+Propriété  : key[i % key_length], boucle sur toute la longueur du fichier
+
+## File Indicators
+Extension ajoutée     : .encrypted
+Note de rançon        : README_RANSOM.txt
+Extensions ciblées    : .txt .pdf .docx .xlsx .jpg .png .zip
+Limite fichiers (TP)  : 15
+
+## Behavior Indicators
+- Génère un victim_id : VICTIM_<hostname>_<timestamp>
+- Enregistrement HTTP POST /api/register (hostname, timestamp)
+- Chiffrement XOR de chaque fichier cible → renommage + suppression original
+- Exfiltration de la clé en clair via POST /api/key
+- Dépôt de note de rançon README_RANSOM.txt
+
+## Détection — strings caractéristiques
+  - "Sup3rS3cr3tK3y2024!"
+  - "/api/register"
+  - "/api/key"
+  - ".encrypted"
+  - "README_RANSOM.txt"
+  - "VICTIM_"
+  - "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+
+## Fonctions principales
+  - main()                 : orchestration globale
+  - generate_victim_id()   : génère l'ID victime unique
+  - encrypt()              : boucle XOR sur les données
+  - encrypt_file()         : lit, chiffre, réécrit + supprime l'original
+  - encrypt_directory()    : parcours récursif du dossier cible
+  - register_victim()      : POST /api/register via curl
+  - exfiltrate_key()       : POST /api/key via curl
+  - drop_ransom_note()     : crée README_RANSOM.txt

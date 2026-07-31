@@ -1,0 +1,73 @@
+# Vagrantfile — VM d'analyse « RE-Lab » (cours Détournement mémoire & Reverse Engineering)
+# Une seule VM Linux, headless (CLI), réutilisée pour tous les modules A -> E.
+# Réseau host-only (private_network) : PAS d'accès sortant pour les TP malware.
+#
+# Usage :
+#   vagrant up            # crée et provisionne la VM
+#   vagrant ssh           # se connecter
+#   vagrant snapshot save clean   # snapshot AVANT tout TP malware
+#   vagrant snapshot restore clean
+#
+# DEUX HYPERVISEURS SUPPORTÉS : VirtualBox (défaut) et VMware Workstation/Fusion.
+#   vagrant up                              # VirtualBox
+#   vagrant up --provider=vmware_desktop    # VMware
+#   export VAGRANT_DEFAULT_PROVIDER=vmware_desktop   # pour ne plus le retaper
+#
+# Côté VMware, il faut DEUX composants sur l'hôte (voir A_README_environnement.md) :
+#   1. le plugin      : vagrant plugin install vagrant-vmware-desktop
+#   2. l'utilitaire   : « Vagrant VMware Utility » (démon système, paquet séparé
+#                       à télécharger chez HashiCorp — le plugin seul ne suffit pas)
+#
+# Remarque : GUI (Ghidra, Burp) non installés par défaut (cours en headless/CLI).
+# Voir A_README_environnement.md, section « Bonus GUI », pour l'option bureau XFCE.
+
+Vagrant.configure("2") do |config|
+  # La box bento/ubuntu-22.04 publie les deux providers (virtualbox + vmware_desktop) :
+  # aucun override de box n'est nécessaire selon l'hyperviseur choisi.
+  config.vm.box = "bento/ubuntu-22.04"
+  config.vm.hostname = "re-lab"
+
+  # Réseau isolé host-only : indispensable pour les TP malware/ransomware.
+  # (Aucune interface bridge / NAT vers Internet n'est exposée aux binaires analysés.)
+  # Sous VMware, c'est l'utilitaire Vagrant VMware Utility qui crée le vmnet
+  # correspondant à ce sous-réseau ; sans lui le `vagrant up` échoue ici.
+  config.vm.network "private_network", ip: "192.168.56.20"
+
+  # --- Provider 1 : VirtualBox -----------------------------------------------
+  config.vm.provider "virtualbox" do |vb|
+    vb.name   = "RE-Lab (cours 5A-04)"
+    vb.memory = 4096
+    vb.cpus   = 2
+    # Désactive l'audio/USB inutiles ; garde la VM légère.
+    vb.customize ["modifyvm", :id, "--nictype1", "virtio"]
+  end
+
+  # --- Provider 2 : VMware Workstation (Linux/Windows) / Fusion (macOS) ------
+  # Le provider unifié « vmware_desktop » couvre les deux produits.
+  # On passe par les clés .vmx brutes : elles fonctionnent sur toutes les
+  # versions du plugin, contrairement aux raccourcis .memory / .cpus.
+  config.vm.provider "vmware_desktop" do |vw|
+    vw.vmx["displayname"] = "RE-Lab (cours 5A-04)"
+    vw.vmx["memsize"]     = "4096"
+    vw.vmx["numvcpus"]    = "2"
+    vw.gui = false
+    # Le dossier partagé passe par HGFS (open-vm-tools, déjà dans la box bento)
+    # au lieu de vboxsf. Même conséquence pratique : voir la note « ne pas
+    # construire de bundle .NET single-file sur le dossier synchronisé ».
+  end
+
+  # Dossier partagé pour déposer/retirer artefacts et cibles (lecture/écriture).
+  config.vm.synced_folder "./shared", "/home/vagrant/shared", create: true
+
+  # Provisioning principal (idempotent) — identique quel que soit l'hyperviseur.
+  config.vm.provision "shell", path: "provision.sh"
+
+  # Message de fin.
+  config.vm.post_up_message = <<-MSG
+  =====================================================================
+   RE-Lab prête.  vagrant ssh  puis  cd ~/labs
+   IMPORTANT : `vagrant snapshot save clean` AVANT tout TP malware.
+   Vérifier les outils : ~/labs/check_tools.sh
+  =====================================================================
+  MSG
+end
