@@ -343,6 +343,109 @@ Retourne :
 
 ---
 
+## Étape 6 : Challenges Bonus
+
+Cinq challenges bonus ont été réalisés pour approfondir les compétences acquises.
+
+### Challenge 1 — Analyse d'un Binaire Strippé (⭐⭐⭐)
+
+**Objectif :** Extraire la clé sans symboles de debug.
+
+Le binaire `ransomware_stripped` a été produit avec `gcc -O2 && strip`. Sans symboles,
+la commande `break encryption_key` dans GDB ne fonctionne plus.
+
+**Méthode utilisée :** `strings ransomware_stripped | grep -E "Sup3r"` — la clé XOR reste
+visible en clair dans la section `.rodata` même après strip. L'adresse trouvée : offset `0x2500`.
+
+**Conclusion :** `strip` supprime les symboles mais pas les données statiques.
+Pour vraiment protéger la clé, il faut la générer dynamiquement (voir Challenge 4).
+
+**Livrable :** `Etape6_Bonus/challenge1/challenge1_report.md`
+
+---
+
+### Challenge 2 — Vaccin Anti-Ransomware (⭐⭐⭐⭐)
+
+**Objectif :** Détecter et bloquer le ransomware avant qu'il ne chiffre les fichiers.
+
+**Script `vaccine.py` — trois mécanismes de défense :**
+1. Surveillance des processus (`ps aux`) — tue le processus ransomware dès détection
+2. Surveillance des connexions réseau (`ss -tnp`) — alerte si connexion vers port 5000
+3. Surveillance des fichiers (`os.walk`) — détecte les nouveaux `.encrypted`
+4. Backup préventif automatique + restauration en cas d'attaque
+
+**Utilisation :**
+```bash
+python3 vaccine.py ./test_files/
+```
+
+**Livrable :** `Etape6_Bonus/challenge2/vaccine.py`
+
+---
+
+### Challenge 3 — Exploit Avancé du Serveur C2 (⭐⭐⭐⭐⭐)
+
+**Objectif :** Automatiser l'exploitation des 5 vulnérabilités identifiées à l'Étape 5.
+
+**Script `exploit.py` — 4 exploits enchaînés :**
+1. Dump complet sans authentification (`/api/victims`, `/api/keys`)
+2. Énumération IDOR (`/api/victim/1`, `/2`, `/3`…)
+3. SQL Injection (`' OR '1'='1`) → toutes les victimes retournées
+4. Configuration admin exposée (`/api/debug/config`) → `ADMIN_PASSWORD: password123`
+
+**Impact calculé :** 18 clés de chiffrement récupérables → toutes les victimes peuvent
+déchiffrer sans payer. Le modèle économique du ransomware est brisé.
+
+**Livrables :** `Etape6_Bonus/challenge3/exploit.py` + `writeup.md`
+
+---
+
+### Challenge 4 — Ransomware Amélioré (⭐⭐⭐⭐)
+
+**Objectif :** Implémenter les améliorations qui rendraient ce ransomware résistant à notre analyse.
+
+**`ransomware_v2.c` — 5 améliorations :**
+1. **AES-256-CBC** (OpenSSL) au lieu de XOR → infaisable par bruteforce
+2. **Clé aléatoire** (`/dev/urandom`) → clé unique par victime, invisible dans le binaire
+3. **Anti-debug** (`ptrace PTRACE_TRACEME`) → notre analyse GDB de l'Étape 2 aurait échoué
+4. **Détection de VM** (lecture `/sys/class/dmi/id/`) → détecte VirtualBox/VMware
+5. **Suppression sécurisée** (écrasement zeros) → récupération forensique impossible
+
+**Compilation et test :**
+```bash
+gcc -O2 -o ransomware_v2 ransomware_v2.c -lssl -lcrypto
+./ransomware_v2 ./test_v2/
+# [*] Clé AES-256 générée aléatoirement (32 bytes)
+# [+] Chiffré (AES-256) : test_v2/secret.txt -> test_v2/secret.txt.encrypted
+```
+
+**Livrables :** `Etape6_Bonus/challenge4/ransomware_v2.c` + `comparaison_v1_v2.md` + binaire compilé
+
+---
+
+### Challenge 5 — Forensics : Timeline de l'Attaque (⭐⭐⭐)
+
+**Objectif :** Reconstituer la chronologie complète de l'attaque à partir des artéfacts système.
+
+**Timeline reconstituée :**
+
+| Temps | Événement |
+|-------|-----------|
+| T+0:00 | Exécution de `./ransomware` |
+| T+0:01 | Génération du victim_id (`VICTIM_student-vm_1734444225`) |
+| T+0:02 | POST `/api/register` vers le C2 |
+| T+0:03 | Chiffrement XOR des 3 fichiers (< 1 seconde) |
+| T+0:04 | POST `/api/key` — exfiltration de la clé en clair |
+| T+0:05 | Dépôt de `README_RANSOM.txt` |
+
+**Artéfacts identifiés :** fichiers `.encrypted`, logs réseau, historique bash, timestamps.
+
+**Méthode de récupération :** clé extraite des logs réseau → `recovery_tool.py` → 3/3 fichiers restaurés.
+
+**Livrables :** `Etape6_Bonus/challenge5/timeline.md` + `forensics_report.md`
+
+---
+
 ## Difficultés Rencontrées
 
 | Étape | Difficulté | Solution |
@@ -416,6 +519,18 @@ curl http://localhost:5000/api/debug/config
 - `Etape4_Recouvrement/encrypted_files/document.txt` — ✅ déchiffré
 - `Etape4_Recouvrement/encrypted_files/rapport.txt` — ✅ déchiffré
 - `Etape4_Recouvrement/encrypted_files/clients.txt` — ✅ déchiffré
+
+**Étape 6 — Bonus :**
+- `Etape6_Bonus/challenge1/challenge1_report.md` — analyse binaire strippé
+- `Etape6_Bonus/challenge1/ransomware_stripped` — binaire sans symboles
+- `Etape6_Bonus/challenge2/vaccine.py` — vaccin anti-ransomware
+- `Etape6_Bonus/challenge3/exploit.py` — exploit automatisé C2
+- `Etape6_Bonus/challenge3/writeup.md` — writeup exploitation
+- `Etape6_Bonus/challenge4/ransomware_v2.c` — ransomware AES-256 + anti-debug
+- `Etape6_Bonus/challenge4/ransomware_v2` — binaire compilé
+- `Etape6_Bonus/challenge4/comparaison_v1_v2.md` — analyse comparative
+- `Etape6_Bonus/challenge5/timeline.md` — timeline forensique complète
+- `Etape6_Bonus/challenge5/forensics_report.md` — rapport d'analyse forensique
 
 ---
 
