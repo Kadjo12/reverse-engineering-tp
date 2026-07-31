@@ -1,0 +1,60 @@
+# Network IOCs - Ransomware Pédagogique TP Jour 5
+# Date   : 2026-07-31
+# Équipe : Djimy DONKENG
+
+## C2 Infrastructure
+IP/Domain : 127.0.0.1 (localhost)
+Port      : 5000
+Protocol  : HTTP (non chiffré)
+Server    : Werkzeug/2.3.0 Python/3.10.12
+
+## Endpoints
+POST /api/register   → Enregistrement de la victime
+POST /api/key        → Exfiltration de la clé de chiffrement
+
+## User-Agent
+curl/7.81.0
+
+## Données Exfiltrées
+
+### /api/register
+{
+  "victim_id" : "VICTIM_student-vm_1734444225",
+  "hostname"  : "student-vm",
+  "timestamp" : 1734444225
+}
+
+### /api/key
+{
+  "victim_id" : "VICTIM_student-vm_1734444225",
+  "key"       : "Sup3rS3cr3tK3y2024!"
+}
+
+## Format du Victim ID
+Pattern : VICTIM_<hostname>_<timestamp_unix>
+Exemple : VICTIM_student-vm_1734444225
+Rôle    : Identifier chaque victime de manière unique
+
+## Statistiques de Communication
+Nombre de requêtes : 2
+Données envoyées   : 176 bytes
+Données reçues     : 120 bytes
+Délai entre req.   : < 1 seconde
+Chiffrement TLS    : NON (trafic en clair)
+
+## Patterns de Détection Réseau
+- POST vers /api/register
+- POST vers /api/key
+- Content-Type: application/json
+- User-Agent contenant "curl"
+- Champ "victim_id" avec préfixe "VICTIM_"
+- Champ "key" contenant la clé XOR (alphanumérique + spéciaux)
+
+## Règles de Détection IDS (Snort/Suricata)
+alert http any any -> any 5000 (msg:"Ransomware C2 register"; content:"POST"; content:"/api/register"; content:"victim_id"; sid:1000001;)
+alert http any any -> any 5000 (msg:"Ransomware C2 key exfil"; content:"POST"; content:"/api/key"; content:"key"; sid:1000002;)
+
+## Faiblesses de Communication Identifiées
+1. Trafic HTTP non chiffré → la clé transite en clair sur le réseau
+2. Pas d'authentification sur les endpoints → n'importe qui peut consulter les données
+3. C2 sur localhost:5000 → facilement détectable et bloquable par un firewall
